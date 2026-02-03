@@ -1,0 +1,746 @@
+================================================================================
+DROIDSCRIPT - HTML, WEBVIEW, HYBRID & JS2JAVA REFERENCE
+================================================================================
+Version: 1.0
+Last Updated: January 2026
+Sources: Official docs, GitHub repos, community forums
+
+================================================================================
+OVERVIEW
+================================================================================
+
+DroidScript is a JavaScript/Python IDE for Android that allows rapid app 
+development with 10x faster coding than standard Android API. It uses Chrome's 
+V8 engine and supports multiple app types:
+
+- Native Apps: Pure JavaScript with DroidScript API
+- HTML Apps: Standard HTML/CSS/JS web applications
+- Hybrid Apps: Native DroidScript with embedded WebView
+- NodeJS Apps: Server-side JavaScript applications
+
+================================================================================
+WEBVIEW COMPONENT
+================================================================================
+
+CREATION & BASIC USAGE
+----------------------
+WebView displays HTML content within a DroidScript app.
+
+Creating a WebView:
+    web = app.CreateWebView(width, height, options);
+    
+    Parameters:
+    - width: Decimal fraction of screen width (0.0-1.0)
+    - height: Decimal fraction of screen height (0.0-1.0)
+    - options: Comma-separated string (see OPTIONS below)
+
+Example:
+    function OnStart() {
+        lay = app.CreateLayout("linear", "VCenter,FillXY");
+        web = app.CreateWebView(0.8, 0.8);
+        lay.AddChild(web);
+        app.AddLayout(lay);
+    }
+
+WEBVIEW OPTIONS
+---------------
+- "IgnoreErrors" - Suppress error dialogs
+- "IgnoreSslErrors" - Bypass SSL certificate warnings
+- "NoScrollBars" - Hide scrollbars
+- "ScrollFade" - Fade scrollbars when not scrolling
+- "Wide" - Enable wide viewport
+- "FillXY" - Fill parent dimensions
+- "NoActionBar" - Hide action bar
+- "AllowZoom" - Enable pinch zoom
+- "UseBrowser" - Open links in external browser
+- "UseBasicInput" - Basic keyboard input
+- "Persist" - Keep cache, history, form data between sessions
+- "ClearCookies" - Clear cookies on startup
+- "local" - Load paths starting with / from /Storage/[AppName]/
+
+PREMIUM OPTIONS
+---------------
+- "Serv" - Serve HTML/Hybrid app over HTTP server (port 3033)
+- "Fast" - Use J2V8 engine (3x speed, no DOM methods like setTimeout)
+
+LOADING CONTENT
+---------------
+
+LoadHtml(html, baseFolder, options):
+    Loads HTML string directly into WebView
+    
+    web.LoadHtml(html, "file:///Sys/");
+    
+    Example with embedded JavaScript:
+    var html = "<html><head>";
+    html += "<meta name='viewport' content='width=device-width'>";
+    html += "</head><body>Hello World!</body></html>";
+    web.LoadHtml(html);
+
+LoadUrl(url, options):
+    Loads content from URL (file:// or http://)
+    
+    Absolute path:
+    web.LoadUrl("file:///sdcard/index.html");
+    
+    Relative path (from app folder):
+    web.LoadUrl("Html/index.html");
+    
+    Remote URL:
+    web.LoadUrl("http://www.example.com");
+
+Execute(code):
+    Execute JavaScript code within WebView context
+    
+    web.Execute("document.body.style.backgroundColor = 'red';");
+    
+    Useful for:
+    - Modifying DOM after page load
+    - Calling JavaScript functions from DroidScript
+    - Injecting dynamic content
+
+WEBVIEW METHODS
+---------------
+- Back() - Navigate back in history
+- Forward() - Navigate forward
+- CanGoBack() - Returns true if can go back
+- CanGoForward() - Returns true if can go forward
+- ClearHistory() - Clear navigation history
+- GetUrl() - Get current URL
+- Capture(file) - Capture screenshot to file
+- Print() - Open print dialog
+- SetUserAgent(agent) - Set custom user agent string
+- SetUserCreds(name, password) - Set HTTP authentication
+- SetBackColor(color) - Set background color
+- GetHtml() - Get current HTML content
+- SetUseBrowser(urlFilter) - Fine control over which URLs open browser
+
+CALLBACKS
+---------
+- SetOnProgress(callback) - Called during page load (progress 0-100)
+- SetOnConsole(callback) - Receives console.log messages from WebView
+- SetOnError(callback) - Handle load errors
+- LoadFailed() - Detect page load failures
+
+Example:
+    web.SetOnProgress(function(progress) {
+        if(progress === 100) {
+            app.ShowPopup("Page loaded!");
+        }
+    });
+
+TRANSPARENCY & STYLING
+----------------------
+Setting transparent background:
+    web.SetBackColor("#00000000");
+    
+This allows showing formatted text over background images.
+
+================================================================================
+HYBRID APPS - WEBVIEW WITH DROIDSCRIPT INTEGRATION
+================================================================================
+
+Hybrid apps combine HTML/CSS/JS interface with DroidScript native functionality.
+
+ARCHITECTURE
+------------
+HTML/JavaScript Frontend <---> DroidScript Backend
+         (UI/Logic)              (Native Android APIs)
+
+COMMUNICATION: WEBVIEW TO DROIDSCRIPT (Execute)
+------------------------------------------------
+From WebView JavaScript, call DroidScript functions using app.Execute():
+
+HTML/JavaScript side:
+    <script src="file:///android_asset/app.js"></script>
+    <script>
+        function callNative(data) {
+            app.Execute("handleFromWeb('" + data + "')");
+        }
+    </script>
+    <button onclick="callNative('test')">Call Native</button>
+
+DroidScript side:
+    function OnStart() {
+        lay = app.CreateLayout("linear", "VCenter,FillXY");
+        web = app.CreateWebView(0.8, 0.8);
+        
+        var html = '<script src="file:///android_asset/app.js"></script>';
+        html += '<button onclick="app.Execute(\'handleClick()\')">Click</button>';
+        
+        web.LoadHtml(html);
+        lay.AddChild(web);
+        app.AddLayout(lay);
+    }
+    
+    function handleClick() {
+        app.ShowPopup("Button clicked from WebView!");
+    }
+    
+    function handleFromWeb(data) {
+        app.ShowPopup("Received: " + data);
+    }
+
+IMPORTANT: Include app.js for access to DroidScript API:
+    <script src="file:///android_asset/app.js"></script>
+
+SECURITY CONSIDERATIONS:
+- Use 'AllowRemote' option carefully (security risk)
+- Only allow trusted web content to Execute DroidScript code
+- Validate all data passed from WebView
+
+COMMUNICATION: DROIDSCRIPT TO WEBVIEW (Execute)
+------------------------------------------------
+Call JavaScript functions in WebView from DroidScript:
+
+DroidScript side:
+    function OnStart() {
+        web = app.CreateWebView(1, 1);
+        web.LoadHtml(html);
+        
+        // Call JS function after page loads
+        setTimeout(function() {
+            web.Execute("updateData('Hello from DroidScript!')");
+        }, 1000);
+    }
+
+WebView JavaScript side:
+    <script>
+        function updateData(message) {
+            document.getElementById('display').innerHTML = message;
+        }
+    </script>
+
+BI-DIRECTIONAL EXAMPLE
+----------------------
+function OnStart() {
+    lay = app.CreateLayout("linear", "VCenter,FillXY");
+    web = app.CreateWebView(1, 0.9);
+    
+    var html = `
+        <html><head>
+        <script src="file:///android_asset/app.js"></script>
+        <script>
+            function sendToNative(msg) {
+                app.Execute("receiveFromWeb('" + msg + "')");
+            }
+            
+            function receiveFromNative(msg) {
+                document.getElementById('output').innerHTML = msg;
+            }
+        </script>
+        </head><body>
+        <button onclick="sendToNative('Hello Native!')">
+            Send to Native
+        </button>
+        <div id="output"></div>
+        </body></html>
+    `;
+    
+    web.LoadHtml(html);
+    lay.AddChild(web);
+    app.AddLayout(lay);
+}
+
+function receiveFromWeb(msg) {
+    app.ShowPopup(msg);
+    web.Execute("receiveFromNative('Hello Web!')");
+}
+
+CONSOLE BRIDGING
+----------------
+Alternative communication via console.log:
+
+WebView side:
+    console.log("COMMAND:" + JSON.stringify({action: "save", data: value}));
+
+DroidScript side:
+    web.SetOnConsole(function(msg) {
+        if(msg.startsWith("COMMAND:")) {
+            var cmd = JSON.parse(msg.substring(8));
+            handleCommand(cmd);
+        }
+    });
+
+================================================================================
+JS2JAVA COMMUNICATION (NATIVE ANDROID)
+================================================================================
+
+For advanced hybrid apps, JavaScript can communicate with native Java/Android 
+code through JavaScriptInterface.
+
+BASIC PATTERN (Android WebView)
+--------------------------------
+Java side:
+    public class WebAppInterface {
+        Context mContext;
+        
+        WebAppInterface(Context c) {
+            mContext = c;
+        }
+        
+        @JavascriptInterface
+        public void showToast(String toast) {
+            Toast.makeText(mContext, toast, Toast.LENGTH_SHORT).show();
+        }
+        
+        @JavascriptInterface
+        public void showDialog(String message) {
+            // Android native dialog implementation
+        }
+    }
+    
+    webView.addJavascriptInterface(new WebAppInterface(this), "Android");
+
+JavaScript side:
+    <button onclick="Android.showToast('Hello!')">Show Toast</button>
+    <button onclick="Android.showDialog('Message')">Show Dialog</button>
+
+JAVA2JS (Callbacks)
+-------------------
+Java side:
+    private void sendJS(final String script) {
+        webView.post(new Runnable() {
+            public void run() {
+                webView.loadUrl("javascript:" + script + ";");
+            }
+        });
+    }
+    
+    // In dialog onClick:
+    sendJS("javascriptFunction('dialog', 'OK')");
+
+JavaScript side:
+    function javascriptFunction(source, action) {
+        console.log("Received from Java: " + source + " - " + action);
+    }
+
+DROIDSCRIPT EQUIVALENT
+----------------------
+DroidScript abstracts this pattern:
+- app.Execute() = JavaScript Interface from JS to Native
+- web.Execute() = loadUrl from Native to JS
+
+================================================================================
+HTML APP TYPE
+================================================================================
+
+HTML apps run entirely in WebView with access to DroidScript API via app.js.
+
+PROJECT STRUCTURE:
+------------------
+MyHTMLApp/
+├── index.html          (Entry point)
+├── css/
+│   └── style.css
+├── js/
+│   └── script.js
+└── img/
+
+CREATING HTML APP:
+------------------
+1. Create new app in DroidScript
+2. Set app type to "HTML" in project settings
+3. Create index.html as main file
+
+Example index.html:
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="file:///android_asset/app.js"></script>
+        <title>My HTML App</title>
+    </head>
+    <body>
+        <h1>HTML App</h1>
+        <button onclick="app.ShowPopup('Hello!')">Show Popup</button>
+        
+        <script>
+            // Access device features
+            function getLocation() {
+                var loc = app.GetLocation();
+                alert("Lat: " + loc.latitude);
+            }
+        </script>
+    </body>
+    </html>
+
+AVAILABLE APIS IN HTML APPS:
+-----------------------------
+Full DroidScript API available through app object:
+- app.ShowPopup()
+- app.ReadFile() / app.WriteFile()
+- app.GetLocation()
+- app.SendSMS()
+- app.StartCamera()
+- app.PlaySound()
+- All other app.* methods
+
+================================================================================
+CFG OPTIONS FOR HTML/HYBRID APPS
+================================================================================
+
+Configuration flags (place at top of main script):
+
+cfg.Portrait / cfg.Landscape - Set orientation
+cfg.Light / cfg.Dark / cfg.Holo - UI theme
+cfg.MUI - Enable Material UI components
+cfg.Node - Run in NodeJS mode
+cfg.Serv - Serve over HTTP (port 3033)
+cfg.Fast - Use J2V8 engine (3x speed)
+
+Example:
+    cfg.Portrait;
+    cfg.Dark;
+    cfg.MUI;
+
+================================================================================
+WEBVIEW PERFORMANCE TIPS
+================================================================================
+
+OPTIMIZATION:
+-------------
+1. Use "Fast" option for intensive operations (note: loses setTimeout/setInterval)
+2. Cache resources locally in app folder
+3. Use "Persist" option to keep data between sessions
+4. Minimize app.Execute() calls (batch operations)
+5. Use local storage for WebView state
+6. Preload common resources
+
+DEBUGGING:
+----------
+1. SetOnConsole() to capture console.log
+2. SetOnError() for error handling
+3. WiFi IDE for remote debugging
+4. Chrome DevTools (via remote debugging)
+
+COMMON ISSUES:
+--------------
+1. "Function not defined" - Ensure app.js is loaded
+2. SSL errors - Use "IgnoreSslErrors" option
+3. Timing issues - Use SetOnProgress to detect page load completion
+4. Quote escaping - Be careful with nested quotes in Execute()
+
+================================================================================
+MATERIAL UI (MUI) SUPPORT
+================================================================================
+
+DroidScript includes Material UI components for modern interfaces.
+
+Enabling MUI:
+    cfg.MUI;
+
+Creating MUI components:
+    var btn = MUI.CreateButton("Click Me", 0.8);
+    var list = MUI.CreateList("Title:Icon", 1, 0.5);
+
+MUI components integrate seamlessly with WebView hybrid apps.
+
+================================================================================
+FILE ORGANIZATION
+================================================================================
+
+NATIVE APP WITH WEBVIEW:
+------------------------
+MyApp/
+├── MyApp.js           (Main DroidScript file)
+├── Html/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+└── Img/
+
+PURE HTML APP:
+--------------
+MyHTMLApp/
+├── index.html         (Entry point - no .js file needed)
+├── css/
+├── js/
+└── img/
+
+LOADING FROM APP FOLDER:
+------------------------
+Relative paths load from app folder automatically:
+    web.LoadUrl("Html/index.html");
+    
+Images in HTML:
+    <img src="Img/logo.png">
+
+================================================================================
+SECURITY & PERMISSIONS
+================================================================================
+
+WEBVIEW SECURITY:
+-----------------
+1. Default: JavaScript disabled (enable in options)
+2. AllowRemote: Dangerous - allows remote code execution
+3. Use "local" option for file:// safety
+4. Validate all Execute() parameters from WebView
+5. Never trust user input passed through Execute()
+
+PERMISSIONS:
+------------
+DroidScript handles Android permissions automatically for most features.
+Special permissions require:
+    app.GetPermission("Permission");
+    app.CheckPermission("Permission");
+
+Example:
+    app.GetPermission("Storage");
+    app.GetPermission("Location");
+
+================================================================================
+ADVANCED PATTERNS
+================================================================================
+
+WEBVIEW AS UI WRAPPER:
+----------------------
+Use DroidScript for logic, WebView for complex UI:
+
+function OnStart() {
+    // Native app logic
+    var data = processData();
+    
+    // WebView for UI
+    web = app.CreateWebView(1, 1);
+    web.LoadUrl("Html/interface.html");
+    
+    // Pass data to UI
+    web.SetOnProgress(function(progress) {
+        if(progress === 100) {
+            web.Execute("initUI(" + JSON.stringify(data) + ")");
+        }
+    });
+}
+
+EXTERNAL LIBRARIES IN WEBVIEW:
+-------------------------------
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3"></script>
+
+Or use local copies in app folder.
+
+WEBSERVER + WEBVIEW:
+--------------------
+Serve content via local server, load in WebView:
+
+    var server = app.CreateWebServer(8080);
+    server.SetFolder("/sdcard/MyApp");
+    server.Start();
+    
+    web.LoadUrl("http://localhost:8080/index.html");
+
+================================================================================
+EXAMPLES
+================================================================================
+
+EXAMPLE 1: SIMPLE HYBRID APP
+-----------------------------
+function OnStart() {
+    lay = app.CreateLayout("linear", "VCenter,FillXY");
+    
+    var html = `
+        <html><head>
+        <meta name="viewport" content="width=device-width">
+        <script src="file:///android_asset/app.js"></script>
+        </head><body>
+        <button onclick="app.Vibrate('0,100,30,100')">Vibrate</button>
+        <button onclick="app.TTS.Speak('Hello')">Speak</button>
+        <button onclick="getLocation()">Location</button>
+        <div id="output"></div>
+        
+        <script>
+        function getLocation() {
+            var loc = app.GetLocation();
+            document.getElementById('output').innerHTML = 
+                'Lat: ' + loc.latitude + '<br>Lon: ' + loc.longitude;
+        }
+        </script>
+        </body></html>
+    `;
+    
+    web = app.CreateWebView(1, 1);
+    web.LoadHtml(html);
+    lay.AddChild(web);
+    app.AddLayout(lay);
+}
+
+EXAMPLE 2: TWO-WAY COMMUNICATION
+---------------------------------
+function OnStart() {
+    lay = app.CreateLayout("linear", "VCenter,FillXY");
+    
+    btn = app.AddButton(lay, "Send to WebView", 0.8, 0.1);
+    btn.SetOnTouch(function() {
+        var msg = "Time: " + new Date().toLocaleTimeString();
+        web.Execute("updateDisplay('" + msg + "')");
+    });
+    
+    var html = `
+        <html><head>
+        <script src="file:///android_asset/app.js"></script>
+        <style>
+            body { font-family: Arial; padding: 20px; }
+            #display { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+        </style>
+        </head><body>
+        <h2>Hybrid Communication</h2>
+        <button onclick="sendToNative()">Send to Native</button>
+        <div id="display">Waiting...</div>
+        
+        <script>
+        function sendToNative() {
+            var msg = "Message from WebView";
+            app.Execute("handleWebMessage('" + msg + "')");
+        }
+        
+        function updateDisplay(msg) {
+            document.getElementById('display').innerHTML = msg;
+        }
+        </script>
+        </body></html>
+    `;
+    
+    web = app.CreateWebView(1, 0.8);
+    web.LoadHtml(html);
+    lay.AddChild(web);
+    app.AddLayout(lay);
+}
+
+function handleWebMessage(msg) {
+    app.ShowPopup(msg);
+}
+
+EXAMPLE 3: DATA PERSISTENCE
+----------------------------
+function OnStart() {
+    var html = `
+        <html><head>
+        <script src="file:///android_asset/app.js"></script>
+        </head><body>
+        <input id="data" type="text" placeholder="Enter data">
+        <button onclick="save()">Save</button>
+        <button onclick="load()">Load</button>
+        <div id="output"></div>
+        
+        <script>
+        function save() {
+            var data = document.getElementById('data').value;
+            app.Execute("saveData('" + data + "')");
+        }
+        
+        function load() {
+            app.Execute("loadData()");
+        }
+        
+        function displayData(data) {
+            document.getElementById('output').innerHTML = 'Loaded: ' + data;
+            document.getElementById('data').value = data;
+        }
+        </script>
+        </body></html>
+    `;
+    
+    web = app.CreateWebView(1, 1);
+    web.LoadHtml(html);
+    app.AddLayout(web);
+}
+
+function saveData(data) {
+    app.WriteFile("mydata.txt", data);
+    app.ShowPopup("Data saved!");
+}
+
+function loadData() {
+    var data = app.ReadFile("mydata.txt");
+    web.Execute("displayData('" + data + "')");
+}
+
+================================================================================
+COMMON USE CASES
+================================================================================
+
+1. RICH TEXT DISPLAY:
+   Use WebView with LoadHtml for formatted text with HTML/CSS
+
+2. WEB CONTENT WRAPPER:
+   Load external websites with DroidScript controls around them
+
+3. DASHBOARD APPS:
+   HTML/CSS for complex layouts, DroidScript for data/functionality
+
+4. FORM APPLICATIONS:
+   HTML forms with DroidScript backend for validation/storage
+
+5. DATA VISUALIZATION:
+   Use Chart.js, D3.js in WebView with DroidScript data
+
+6. OFFLINE WEB APPS:
+   Load local HTML5 app with DroidScript for device features
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+PROBLEM: WebView shows blank
+SOLUTION: Check JavaScript is enabled, verify file paths, use OnError callback
+
+PROBLEM: app.Execute() not working
+SOLUTION: Ensure app.js is included, check timing (page must be loaded)
+
+PROBLEM: SSL certificate errors
+SOLUTION: Use "IgnoreSslErrors" option or load from https with valid cert
+
+PROBLEM: Function not defined in Execute()
+SOLUTION: Use SetOnProgress to ensure page is loaded before calling functions
+
+PROBLEM: Quotes breaking in Execute()
+SOLUTION: Escape quotes properly or use template literals with backticks
+
+PROBLEM: Slow performance
+SOLUTION: Use "Fast" option, minimize DOM manipulation, cache resources
+
+================================================================================
+RESOURCES
+================================================================================
+
+Official Documentation:
+- https://droidscript.github.io/Docs/
+- http://droidscript.org/wiki/
+
+GitHub:
+- https://github.com/DroidScript/Docs
+
+Community:
+- https://groups.google.com/g/androidscript
+
+Tutorials:
+- http://androidscript.org/droidscript/tutorials/
+
+Plugin Development:
+- https://github.com/DroidScript/Plugin-JavaScript
+
+================================================================================
+VERSION HISTORY
+================================================================================
+
+v1.0 - January 2026
+- Initial comprehensive reference
+- Covers WebView, HTML apps, Hybrid apps
+- JS2Java communication patterns
+- Examples and troubleshooting
+
+================================================================================
+NOTES
+================================================================================
+
+- DroidScript is maintained by droidscript.org (non-profit)
+- Premium features require subscription
+- APK/AAB building available directly on device
+- Chrome V8 engine ensures modern JavaScript support
+- WiFi IDE available for remote development
+- Python support also available (experiments mode)
+
+================================================================================
+EOF
+================================================================================
